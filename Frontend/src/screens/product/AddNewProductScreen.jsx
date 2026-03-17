@@ -1,10 +1,9 @@
-import React, { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import axios from "axios";
 import ShowSuccessMesasge from "../../components/ShowSuccessMesasge";
 import { SERVER_URL } from "../../router";
 
 function AddNewProductScreen() {
-  const [isError, setisError] = useState("");
   const [allLocations, setAllLocations] = useState([]);
   const [manufacturer, setManufacturer] = useState([]);
   const [formData, setFormData] = useState({
@@ -32,38 +31,34 @@ function AddNewProductScreen() {
     setFormData({ ...formData, [name]: value });
   };
 
-  useEffect(() => {
-    fetchNecessaryData();
-  }, []);
-  const fetchNecessaryData = async () => {
+  const fetchNecessaryData = useCallback(async () => {
     try {
-      const manufacturersRes = await axios.get(
-        `${SERVER_URL}/api/v1/brands`
-      );
-      const locationsRes = await axios.get(
-        `${SERVER_URL}/api/v1/location`
-      );
+      const manufacturersRes = await axios.get(`${SERVER_URL}/api/v1/brands`);
+      const locationsRes = await axios.get(`${SERVER_URL}/api/v1/location`);
       setAllLocations(locationsRes.data);
       setManufacturer(manufacturersRes.data);
       if (locationsRes.data.length > 0 && manufacturersRes.data.length > 0) {
-        setFormData({
-          ...formData,
+        setFormData((prev) => ({
+          ...prev,
           manufacturer: manufacturersRes.data[0]._id,
           locationId: locationsRes.data[0]._id,
-        });
+        }));
       }
     } catch (e) {
-      setError(e);
+      setError(e.response?.data?.error || e.response?.data?.message || e.message);
       console.log(e);
-    } finally {
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchNecessaryData();
+  }, [fetchNecessaryData]);
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
     setError("");
     try {
-      const response = await axios.post(
+      await axios.post(
         `${SERVER_URL}/api/v1/products`,
         formData,
         {
@@ -75,22 +70,19 @@ function AddNewProductScreen() {
       );
       setSuccessMessage("Product added successfully");
       setFormData({
-        locationId: "",
-        status: "",
+        ...formData,
         title: "",
         description: "",
         serialNo: "",
         rackMountable: false,
         isPart: false,
-        manufacturer: "",
         model: "",
         warrantyMonths: "",
-        user: "",
         dateOfPurchase: "",
       });
       console.log(formData);
     } catch (error) {
-      setError("Failed to add product");
+      setError(error.response?.data?.error || error.response?.data?.message || "Failed to add product");
     }
     setIsLoading(false);
   };
@@ -210,7 +202,7 @@ function AddNewProductScreen() {
               required
             >
               {manufacturer.map((man) => (
-                <option value={man._id}>{man.name}</option>
+                <option key={man._id} value={man._id}>{man.name}</option>
               ))}
             </select>
           </div>
@@ -231,7 +223,7 @@ function AddNewProductScreen() {
               required
             >
               {allLocations.map((loc) => (
-                <option value={loc._id}>{loc.name}</option>
+                <option key={loc._id} value={loc._id}>{loc.name}</option>
               ))}
             </select>
           </div>
@@ -336,10 +328,11 @@ function AddNewProductScreen() {
         </button>
       </form>
       <br />
-      {successMessage && <ShowSuccessMesasge  children={
-        <div className="text-gray-900 text-lg">{successMessage}</div>}
-  
-  />}
+      {successMessage && (
+        <ShowSuccessMesasge>
+          <div className="text-gray-900 text-lg">{successMessage}</div>
+        </ShowSuccessMesasge>
+      )}
     </div>
   );
 }

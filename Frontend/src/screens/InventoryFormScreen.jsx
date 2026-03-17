@@ -1,5 +1,5 @@
 import axios from "axios";
-import React, { useState } from "react";
+import { useEffect, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { SERVER_URL } from "../router";
 
@@ -7,6 +7,8 @@ function InventoryForm() {
   const [isLoading, seELoading] = useState(false);
   const [isError, setError] = useState(null);
   const [isSuccess, setSuccess] = useState(false);
+  const [allLocations, setAllLocations] = useState([]);
+  const [manufacturer, setManufacturer] = useState([]);
 
   const [data] = useOutletContext();
   const [formData, setFormData] = useState({
@@ -15,14 +17,37 @@ function InventoryForm() {
     description: "",
     serialNo: "",
     manufacturer: "",
+    locationId: "",
     model: "",
     dateOfPurchase: "",
     warrantyMonths: "",
-    status: "none",
-    user: "none",
+    status: "not in use",
+    user: "normal user",
     rackMountable: false,
     isPart: false,
   });
+
+  const fetchNecessaryData = async () => {
+    try {
+      const manufacturersRes = await axios.get(`${SERVER_URL}/api/v1/brands`);
+      const locationsRes = await axios.get(`${SERVER_URL}/api/v1/location`);
+      setAllLocations(locationsRes.data);
+      setManufacturer(manufacturersRes.data);
+      if (locationsRes.data.length > 0 && manufacturersRes.data.length > 0) {
+        setFormData((prev) => ({
+          ...prev,
+          manufacturer: manufacturersRes.data[0]._id,
+          locationId: locationsRes.data[0]._id,
+        }));
+      }
+    } catch (e) {
+      console.log(e);
+    }
+  };
+
+  useEffect(() => {
+    fetchNecessaryData();
+  }, []);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -34,18 +59,16 @@ function InventoryForm() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    // Add form submission logic here
-    console.log(formData);
-
+    seELoading(true);
     try {
       if (isError) setError(false);
       if (isSuccess) setSuccess(false);
 
-      const { data, status } = await axios.post(
+      const { status } = await axios.post(
         `${SERVER_URL}/api/v1/products/`,
         formData,
         {
-          withCredentials: "include",
+          withCredentials: true,
           headers: {
             "Content-Type": "application/json",
           },
@@ -59,21 +82,15 @@ function InventoryForm() {
           title: "",
           description: "",
           serialNo: "",
-          manufacturer: "",
           model: "",
           dateOfPurchase: "",
           warrantyMonths: "",
-          status: "none",
-          user: "none",
           rackMountable: false,
           isPart: false,
         });
       }
-      if (status === 400) {
-        throw new Error(data.error);
-      }
     } catch (e) {
-      setError("Error while addin new item");
+      setError(e.response?.data?.error || e.response?.data?.message || "Error while adding new item");
       console.log(e);
     } finally {
       seELoading(false);
@@ -93,7 +110,7 @@ function InventoryForm() {
         </div>
       )}
       <div className="mb-4">
-        <label htmlFor="title" className="block mb-2">
+        <label htmlFor="title" className="block mb-2 font-semibold">
           Title
         </label>
         <input
@@ -107,7 +124,7 @@ function InventoryForm() {
         />
       </div>
       <div className="mb-4">
-        <label htmlFor="description" className="block mb-2">
+        <label htmlFor="description" className="block mb-2 font-semibold">
           Description
         </label>
         <textarea
@@ -120,7 +137,7 @@ function InventoryForm() {
         />
       </div>
       <div className="mb-4">
-        <label htmlFor="serialNo" className="block mb-2">
+        <label htmlFor="serialNo" className="block mb-2 font-semibold">
           Serial Number
         </label>
         <input
@@ -134,21 +151,45 @@ function InventoryForm() {
         />
       </div>
       <div className="mb-4">
-        <label htmlFor="manufacturer" className="block mb-2">
+        <label htmlFor="manufacturer" className="block mb-2 font-semibold">
           Manufacturer
         </label>
-        <input
-          type="text"
+        <select
           id="manufacturer"
           name="manufacturer"
           value={formData.manufacturer}
           onChange={handleChange}
           required
           className="border rounded px-4 py-2 w-full"
-        />
+        >
+          {manufacturer.map((man) => (
+            <option key={man._id} value={man._id}>
+              {man.name}
+            </option>
+          ))}
+        </select>
       </div>
       <div className="mb-4">
-        <label htmlFor="model" className="block mb-2">
+        <label htmlFor="locationId" className="block mb-2 font-semibold">
+          Location
+        </label>
+        <select
+          id="locationId"
+          name="locationId"
+          value={formData.locationId}
+          onChange={handleChange}
+          required
+          className="border rounded px-4 py-2 w-full"
+        >
+          {allLocations.map((loc) => (
+            <option key={loc._id} value={loc._id}>
+              {loc.name}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="mb-4">
+        <label htmlFor="model" className="block mb-2 font-semibold">
           Model
         </label>
         <input
@@ -162,7 +203,7 @@ function InventoryForm() {
         />
       </div>
       <div className="mb-4">
-        <label htmlFor="dateOfPurchase" className="block mb-2">
+        <label htmlFor="dateOfPurchase" className="block mb-2 font-semibold">
           Date of Purchase
         </label>
         <input
@@ -176,7 +217,7 @@ function InventoryForm() {
         />
       </div>
       <div className="mb-4">
-        <label htmlFor="warrantyMonths" className="block mb-2">
+        <label htmlFor="warrantyMonths" className="block mb-2 font-semibold">
           Warranty Months
         </label>
         <input
@@ -190,7 +231,7 @@ function InventoryForm() {
         />
       </div>
       <div className="mb-4">
-        <label htmlFor="status" className="block mb-2">
+        <label htmlFor="status" className="block mb-2 font-semibold">
           Status
         </label>
         <select
@@ -201,14 +242,13 @@ function InventoryForm() {
           required
           className="border rounded px-4 py-2 w-full"
         >
-          <option value="none">None</option>
           <option value="repair">Repair</option>
           <option value="in use">In Use</option>
           <option value="not in use">Not in Use</option>
         </select>
       </div>
       <div className="mb-4">
-        <label htmlFor="user" className="block mb-2">
+        <label htmlFor="user" className="block mb-2 font-semibold">
           User
         </label>
         <select
@@ -219,15 +259,13 @@ function InventoryForm() {
           required
           className="border rounded px-4 py-2 w-full"
         >
-          <option value="none">None</option>
-          <option value="Normal User">Normal User</option>
+          <option value="normal user">Normal User</option>
           <option value="department">Department</option>
           <option value="admin">Admin</option>
-          <option value="administrator">Administrator</option>
         </select>
       </div>
       <div className="mb-4 flex gap-4 items-center">
-        <label htmlFor="rackMountable" className="block mb-2">
+        <label htmlFor="rackMountable" className="block font-semibold">
           Rack Mountable
         </label>
         <input
@@ -236,11 +274,11 @@ function InventoryForm() {
           name="rackMountable"
           checked={formData.rackMountable}
           onChange={handleChange}
-          className="mr-2"
+          className="w-5 h-5"
         />
       </div>
       <div className="mb-4 flex gap-4 items-center">
-        <label htmlFor="isPart" className="block mb-2">
+        <label htmlFor="isPart" className="block font-semibold">
           Is Part
         </label>
         <input
@@ -249,15 +287,15 @@ function InventoryForm() {
           name="isPart"
           checked={formData.isPart}
           onChange={handleChange}
-          className="mr-2"
+          className="w-5 h-5"
         />
       </div>
       <button
         disabled={isLoading}
         type="submit"
-        className="bg-slate-500 text-white px-4 py-2 rounded hover:bg-slate-600"
+        className="w-full bg-slate-700 text-white px-4 py-3 rounded-md hover:bg-slate-800 transition-colors font-bold text-lg"
       >
-        {isLoading ? "Uploading please wait " : " Submit"}
+        {isLoading ? "Adding Product..." : "Add Product"}
       </button>
     </form>
   );

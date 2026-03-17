@@ -57,8 +57,8 @@ app.get("/", (req, res) => {
 });
 
 app.use((error, req, res, next) => {
-  console.log(error, error.message);
-  return res.status(400).json({ message: "internal server error" });
+  console.error("Global Error Handler:", error);
+  return res.status(400).json({ message: error.message || "internal server error" });
 });
 
 // Socket.IO connection event

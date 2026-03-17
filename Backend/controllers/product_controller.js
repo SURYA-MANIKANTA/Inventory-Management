@@ -1,14 +1,15 @@
 // controllers/productController.js
 
+import mongoose from "mongoose";
 import HistoryModel from "../models/history_model.js";
 import LocationModel from "../models/locations_models.js";
 import Product from "../models/product_model.js";
 import { io } from "../app.js";
 
 export const createProduct = async (req, res) => {
-  if (req.user.role !== "admin") {
-    return res.status(403).json({ message: "not authorized" });
-  }
+  console.log("Creating product with body:", req.body);
+  console.log("Authenticated user:", req.user ? req.user.email : "none");
+  
   try {
     const {
       locationId,
@@ -25,19 +26,19 @@ export const createProduct = async (req, res) => {
       user,
     } = req.body;
 
-    const history = new HistoryModel({
-      location: locationId,
-
+    const historyData = {
+      location: locationId || null,
       status: [
         {
           name: status,
         },
       ],
-    });
+    };
 
+    const history = new HistoryModel(historyData);
     await history.save();
 
-    const product = new Product({
+    const productData = {
       title,
       description,
       serialNo,
@@ -45,17 +46,21 @@ export const createProduct = async (req, res) => {
       createdBy: req.user._id,
       rackMountable,
       isPart,
-      manufacturer,
+      manufacturer: manufacturer || null,
       model,
       warrantyMonths,
       user,
       history: [history._id],
-    });
+    };
 
+    const product = new Product(productData);
     await product.save();
+    
+    console.log("Product created successfully:", product._id);
     io.emit("inventory_updated", { action: "create", productId: product._id });
     res.status(201).json(product);
   } catch (error) {
+    console.error("Error creating product:", error);
     res.status(400).json({ error: error.message });
   }
 };
